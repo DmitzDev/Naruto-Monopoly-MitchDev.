@@ -1,0 +1,35 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "rooms": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null && (!data.exists() || data.child('host').val() == auth.uid)",
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid"
+          }
+        },
+        "status": {
+          ".write": "auth != null && data.parent().child('host').val() == auth.uid"
+        }
+      }
+    },
+    "gameStates": {
+      "$roomId": {
+        ".read": "auth != null && root.child('rooms').child($roomId).child('players').hasChild(auth.uid)",
+        ".write": "auth != null && root.child('rooms').child($roomId).child('players').hasChild(auth.uid)"
+      }
+    },
+    "global_chat": {
+       ".read": "auth != null",
+       ".write": "auth != null",
+       ".indexOn": ["timestamp"]
+    }
+  }
+}
