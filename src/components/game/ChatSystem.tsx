@@ -63,10 +63,9 @@ const ChatSystem = React.memo(({ roomId, username, photoURL, colors, isOpen, set
   const [showEmoji, setShowEmoji] = useState(false);
   const initialLoadRef = useRef(true);
 
-  // Always default to global for unified communication as requested
   useEffect(() => {
-    setActiveChannel('global');
-  }, []);
+    setActiveChannel(roomId ? 'squad' : 'global');
+  }, [roomId]);
 
   const globalPath = 'global_chat';
   const squadPath = roomId ? `rooms/${roomId}/chat` : null;

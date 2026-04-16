@@ -213,9 +213,18 @@ export const BattleModal = ({ isOpen, battleData, onCombatFinish, colors }: any)
         >
           <motion.div
             initial={{ scale: 0.8, y: 100 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8, y: 100 }}
-            className="w-full max-w-xl rounded-[4rem] border-8 p-10 overflow-hidden relative"
+            className="w-full max-w-xl rounded-[4rem] border-8 p-10 overflow-hidden relative shadow-[0_0_100px_rgba(0,0,0,1)]"
             style={{ backgroundColor: '#0a0a0f', borderColor: colors.accent }}
           >
+            {/* Close Button */}
+            {(selectedMove || battleData?.attacker?.isAI) && (
+              <button 
+                onClick={onCombatFinish ? () => onCombatFinish(false, 'taijutsu') : undefined}
+                className="absolute top-6 right-6 z-50 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            )}
             {/* Battle Background Effect */}
             <div className="absolute inset-0 bg-gradient-to-t from-red-600/20 to-transparent animate-pulse pointer-events-none" />
             

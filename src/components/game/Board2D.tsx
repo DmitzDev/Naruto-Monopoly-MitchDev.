@@ -163,12 +163,12 @@ const CharacterToken = React.memo(({ player, index, totalPlayers, getTilePositio
       className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
     >
       <div className="relative group">
-        <div className="w-10 h-10 sm:w-16 sm:h-16 lg:w-20 lg:h-20 flex items-center justify-center pointer-events-none"
+        <div className="w-10 h-10 sm:w-14 sm:h-14 lg:w-16 lg:h-16 flex items-center justify-center pointer-events-none"
           style={{ filter: player.isBankrupt ? 'grayscale(1) opacity(0.5)' : 'none' }}>
           <img
             src={imagePath}
             alt={player.username}
-            className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] scale-125 transition-all"
+            className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] scale-110 transition-all"
             style={{
               transform: `scaleX(${charStyle.scaleX}) rotate(${charStyle.rotate}deg)`,
               willChange: 'transform'
@@ -191,9 +191,10 @@ interface BoardProps {
   onTileClick?: (id: number) => void;
   roomId?: string;
   missionTarget?: number;
+  boardImage?: string;
 }
 
-export default function Board2D({ gameState, players, onTileClick, roomId, missionTarget }: BoardProps) {
+export default function Board2D({ gameState, players, onTileClick, roomId, missionTarget, boardImage }: BoardProps) {
   const { colors } = useThemeStore();
   const { user } = useAuthStore();
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -238,10 +239,10 @@ export default function Board2D({ gameState, players, onTileClick, roomId, missi
       if (pos === 0) y = cornerSize / 2 + 1;
     }
 
-    if (index === 0) { x = 92; y = 92; }
-    if (index === 10) { x = 8; y = 92; }
-    if (index === 20) { x = 8; y = 8; }
-    if (index === 30) { x = 92; y = 8; }
+    if (index === 0) { x = 91.5; y = 91.5; }
+    if (index === 10) { x = 8.5; y = 91.5; }
+    if (index === 20) { x = 8.5; y = 8.5; }
+    if (index === 30) { x = 91.5; y = 8.5; }
 
     return { x: `${x}%`, y: `${y}%` };
   };
@@ -261,12 +262,15 @@ export default function Board2D({ gameState, players, onTileClick, roomId, missi
     [players]
   );
 
+  const [hoveredTile, setHoveredTile] = React.useState<number | null>(null);
+
   return (
     <div className={`relative w-full aspect-square max-w-[800px] lg:max-w-[1000px] mx-auto rounded-lg overflow-hidden border-4 ${isMobile ? 'shadow-lg' : 'shadow-2xl'}`}
       style={{ backgroundColor: colors.bgSecondary, borderColor: colors.borderPrimary }}>
-      {/* Board Image - Static optimized */}
+
+      {/* Board Image - Dynamic based on selection */}
       <img
-        src="/img/Board.png"
+        src={boardImage || "/img/Board.png"}
         alt="Monopoly Board"
         className="absolute inset-0 w-full h-full object-contain"
         loading="eager"
@@ -278,36 +282,88 @@ export default function Board2D({ gameState, players, onTileClick, roomId, missi
         const owner = propertyOwnerMap[tile.id];
         const houses = gameState?.houses?.[tile.id] || 0;
         const isMortgaged = gameState?.mortgaged?.includes(tile.id);
-
-        if (!owner && houses === 0 && !isMortgaged) return null;
-
         const pos = getTilePosition2D(tile.id);
 
         return (
           <div key={tile.id} 
             onClick={() => onTileClick?.(tile.id)}
-            className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 sm:w-12 sm:h-12 cursor-pointer z-[40] hover:bg-white/10 rounded-xl transition-colors"
-            style={{ left: pos.x, top: pos.y }}
+            onMouseEnter={() => setHoveredTile(tile.id)}
+            onMouseLeave={() => setHoveredTile(null)}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 sm:w-12 sm:h-12 cursor-pointer z-[40] transition-all rounded-xl ${hoveredTile === tile.id ? 'bg-white/10 brightness-125' : ''}`}
+            style={{ 
+              left: pos.x, 
+              top: pos.y,
+            }}
           >
-            <div className="absolute left-1/2 top-1/2 pointer-events-none">
-              {owner && (
-              <div className="absolute -translate-x-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-white shadow-sm z-10"
-                style={{ backgroundColor: owner.color }} />
+            {/* Shinobi Property Seal */}
+            {owner && (
+               <motion.div 
+                 initial={{ scale: 0, rotate: -45 }}
+                 animate={{ scale: 1, rotate: 0 }}
+                 className="absolute inset-[15%] rounded-full border-2 shadow-[0_0_15px_rgba(0,0,0,0.5)] flex items-center justify-center overflow-hidden"
+                 style={{ 
+                   borderColor: owner.color, 
+                   backgroundColor: `${owner.color}10`,
+                   boxShadow: `0 0 10px ${owner.color}40, inset 0 0 10px ${owner.color}20`
+                 }}
+               >
+                  <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
+                  <motion.div 
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    className="w-full h-full border border-dashed opacity-30 rounded-full"
+                    style={{ borderColor: owner.color }}
+                  />
+                  <img 
+                    src={owner.photoURL || "/img/MDLogo.png"} 
+                    className="w-[70%] h-[70%] object-contain rounded-full border border-white/20 shadow-inner z-10" 
+                    alt="" 
+                  />
+               </motion.div>
             )}
-            {houses > 0 && (
-              <div className="absolute -translate-x-1/2 -translate-y-1/2 mt-2 sm:mt-3 flex gap-0.5">
-                {Array.from({ length: Math.min(houses, 4) }).map((_, i) => (
-                  <div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-500 rounded-sm shadow-sm" />
-                ))}
-                {houses === 5 && <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-600 rounded-sm shadow-sm" />}
-              </div>
-            )}
-            {isMortgaged && (
-              <div className="absolute -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center border border-white/20">
-                <span className="text-[6px] sm:text-[8px] font-black text-white uppercase">M</span>
-              </div>
-            )}
-            </div>
+            {/* Tooltip */}
+            <AnimatePresence>
+              {hoveredTile === tile.id && (tile.type === 'property' || tile.type === 'railroad' || tile.type === 'utility') && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 bg-slate-900/95 backdrop-blur-md rounded-2xl border-2 border-white/10 shadow-2xl z-[500] w-40 pointer-events-none"
+                  style={{ borderColor: owner ? owner.color : 'rgba(255,255,255,0.1)' }}
+                >
+                  <p className="text-[10px] font-black uppercase text-white tracking-widest leading-none mb-1 truncate">{tile.name}</p>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">Rent</span>
+                    <span className="text-[10px] font-black text-emerald-400">₱{(Array.isArray(tile.rent) ? (houses > 0 ? tile.rent[houses] : tile.rent[0]) : (tile.rent || 0))}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">Owner</span>
+                    <span className="text-[10px] font-black text-orange-400 uppercase truncate ml-2">
+                       {owner ? owner.username : 'VACANT'}
+                    </span>
+                  </div>
+                  {isMortgaged && (
+                    <div className="mt-1 pt-1 border-t border-white/10 text-center">
+                      <span className="text-[8px] font-black text-red-500 uppercase animate-pulse">Mortgaged</span>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+             {houses > 0 && (
+               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mt-3 flex gap-0.5 z-20">
+                 {Array.from({ length: Math.min(houses, 4) }).map((_, i) => (
+                   <div key={i} className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.5)] border border-emerald-400/30" />
+                 ))}
+                 {houses === 5 && <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-600 rounded-sm shadow-[0_0_8px_rgba(220,38,38,0.6)] border border-red-400/30" />}
+               </div>
+             )}
+             {isMortgaged && (
+               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-black/80 rounded-full flex items-center justify-center border border-white/20 shadow-lg z-30">
+                 <span className="text-[6px] sm:text-[8px] font-black text-white uppercase tracking-tighter">M</span>
+               </div>
+             )}
           </div>
         );
       })}

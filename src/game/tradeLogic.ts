@@ -18,24 +18,36 @@ export const executeTrade = async (roomId: string, gameState: any) => {
   const trade = gameState.pendingTrade;
   if (!trade) return;
 
-  const updates: any = {};
-  const pFrom = gameState.players[trade.from];
-  const pTo = gameState.players[trade.to];
+  try {
+    const updates: any = {};
+    const pFrom = gameState.players[trade.from];
+    const pTo = gameState.players[trade.to];
 
-  // Money exchange
-  updates[`gameStates/${roomId}/players/${trade.from}/money`] = pFrom.money - trade.moneyFrom + trade.moneyTo;
-  updates[`gameStates/${roomId}/players/${trade.to}/money`] = pTo.money - trade.moneyTo + trade.moneyFrom;
+    if (!pFrom || !pTo) return;
 
-  // Property exchange
-  const newPropsFrom = (pFrom.properties || []).filter((id: number) => !trade.propsFrom.includes(id)).concat(trade.propsTo);
-  const newPropsTo = (pTo.properties || []).filter((id: number) => !trade.propsTo.includes(id)).concat(trade.propsFrom);
+    // Money exchange
+    updates[`gameStates/${roomId}/players/${trade.from}/money`] = (pFrom.money || 0) - trade.moneyFrom + trade.moneyTo;
+    updates[`gameStates/${roomId}/players/${trade.to}/money`] = (pTo.money || 0) - trade.moneyTo + trade.moneyFrom;
 
-  updates[`gameStates/${roomId}/players/${trade.from}/properties`] = newPropsFrom;
-  updates[`gameStates/${roomId}/players/${trade.to}/properties`] = newPropsTo;
+    // Property exchange
+    const newPropsFrom = (pFrom.properties || []).filter((id: number) => !trade.propsFrom.includes(id)).concat(trade.propsFrom.length > 0 ? trade.propsTo : trade.propsTo);
+    // Correcting property swap logic
+    const finalPropsFrom = (pFrom.properties || []).filter((id: number) => !trade.propsFrom.includes(id)).concat(trade.propsTo);
+    const finalPropsTo = (pTo.properties || []).filter((id: number) => !trade.propsTo.includes(id)).concat(trade.propsFrom);
 
-  // Clear trade
-  updates[`gameStates/${roomId}/pendingTrade`] = null;
-  updates[`gameStates/${roomId}/logs`] = [...(gameState.logs || []), `Trade executed between ${pFrom.username} and ${pTo.username}!`].slice(-10);
+    updates[`gameStates/${roomId}/players/${trade.from}/properties`] = finalPropsFrom;
+    updates[`gameStates/${roomId}/players/${trade.to}/properties`] = finalPropsTo;
 
-  await update(ref(db), updates);
+    // Clear trade
+    updates[`gameStates/${roomId}/pendingTrade`] = null;
+    updates[`gameStates/${roomId}/logs`] = [...(gameState.logs || []), `Scroll Accepted! Trade completed between ${pFrom.username} and ${pTo.username}.`].slice(-15);
+    
+    // Add a flag for the host to finalize if needed, though update(ref(db), updates) usually works if rules allow
+    await update(ref(db), updates);
+    return true;
+  } catch (error) {
+    console.error("Trade Execution Failed:", error);
+    // If it fails, we can try to at least clear it or signal the host
+    return false;
+  }
 };

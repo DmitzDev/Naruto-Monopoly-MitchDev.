@@ -17,6 +17,8 @@ interface UserProfile {
   rank?: string;
   level?: number;
   prestige?: number;
+  ownedBoards?: string[];
+  activeBoard?: string;
 }
 
 interface AuthState {

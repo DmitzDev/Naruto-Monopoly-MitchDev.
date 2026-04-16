@@ -5,8 +5,7 @@ import { useThemeStore } from '../../store/useThemeStore';
 import { getRankFromXP, getXPForNextRank, ACHIEVEMENTS, RANKS } from '../../store/useProgressionStore';
 import { auth, db } from '../../firebase/config';
 import { ref, push, set, onValue, update, get, remove } from 'firebase/database';
-import { LogOut, Trash2, Plus, User, Sword, Award, Settings, Camera, QrCode, Edit2, Gift, History, Sparkles, Users, Play, Loader2, ScrollText, Trophy, Coins, Image as ImageIcon, Medal, Zap, Star, MessageSquareText, Menu, X } from 'lucide-react';
-import Footer from '../layout/Footer';
+import { LogOut, Trash2, Plus, User, Sword, Award, Settings, Camera, QrCode, Edit2, Gift, History, Sparkles, Users, Play, Loader2, ScrollText, Trophy, Coins, Image as ImageIcon, Medal, Zap, Star, MessageSquareText, Menu, X, Landmark, Skull, MessageCircle, ShoppingBag } from 'lucide-react';
 import CurrencyBill from '../common/CurrencyBill';
 import Leaderboard from './Leaderboard';
 import Shop from './Shop';
@@ -47,8 +46,8 @@ const QRModal = ({ roomId, onClose, colors }: { roomId: string, onClose: () => v
         <ScrollText size={100} style={{ color: colors.borderPrimary }} />
       </div>
       <div className="text-center">
-        <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-1" style={{ color: colors.textPrimary }}>Mission Seal ID: {roomId}</h2>
-        <p className="text-[10px] font-bold uppercase tracking-widest opacity-60" style={{ color: colors.textSecondary }}>Scan to join this combat dispatch</p>
+        <h2 className="text-lg font-black uppercase italic tracking-tighter mb-1" style={{ color: colors.textPrimary }}>Mission Seal ID: {roomId}</h2>
+        <p className="text-[9px] font-bold uppercase tracking-widest opacity-60" style={{ color: colors.textSecondary }}>Scan to join this combat dispatch</p>
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-2xl border-4" style={{ borderColor: `${colors.borderPrimary}33` }}>
@@ -153,9 +152,9 @@ const RoomItem = React.memo(({ room, user, colors, joinRoom, deleteRoom, setQrRo
       }}
     >
       <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-600 shadow-[0_0_15px_#ea580c] z-10" />
-      <motion.div
-        className="absolute -right-8 -bottom-8 w-24 h-24 bg-orange-500/5 rounded-full blur-3xl group-hover:bg-orange-500/20 transition-all"
-      />
+      <div className="absolute top-2 right-2 flex gap-1 z-20">
+         <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/30 rounded text-[7px] font-black text-blue-500 uppercase tracking-widest">{room.theme || 'Konoha'}</span>
+      </div>
 
       <div className="min-w-0 flex items-center gap-4 relative z-10">
         <div className="w-12 h-12 rounded-xl overflow-hidden border-2 shadow-inner border-black/10 rotate-3 group-hover:rotate-0 transition-transform">
@@ -168,7 +167,7 @@ const RoomItem = React.memo(({ room, user, colors, joinRoom, deleteRoom, setQrRo
                 <Zap className="w-2 h-2" /> PRIVATE
               </div>
             )}
-            <h3 className="font-black text-sm sm:text-lg uppercase italic tracking-tighter text-orange-950 truncate max-w-[120px] sm:max-w-none">{room.name}</h3>
+            <h3 className="font-black text-xs sm:text-sm uppercase italic tracking-tighter text-orange-950 truncate max-w-[120px] sm:max-w-none">{room.name}</h3>
           </div>
           <div className="flex flex-col gap-0.5">
             <p className="text-[9px] font-bold uppercase text-[#5c3c24] opacity-70 tracking-widest flex items-center gap-1">
@@ -220,7 +219,48 @@ const RoomItem = React.memo(({ room, user, colors, joinRoom, deleteRoom, setQrRo
   );
 });
 
+const PlayerStatsModal = ({ player, onClose, colors }: { player: any, onClose: () => void, colors: any }) => (
+  <div className="fixed inset-0 z-[600] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={onClose}>
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className="p-10 rounded-[3rem] border-8 flex flex-col items-center gap-6 relative shadow-[0_0_80px_rgba(0,0,0,1)] w-full max-w-sm"
+      style={{ backgroundColor: colors.bgTertiary, borderColor: colors.borderPrimary }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="absolute top-0 right-0 p-4">
+         <button onClick={onClose} className="p-2 text-white/50 hover:text-white transition-all"><X /></button>
+      </div>
+      <div className="w-24 h-24 rounded-[2rem] overflow-hidden border-4 shadow-2xl" style={{ borderColor: colors.accent }}>
+         <img src={player.photoURL || "/img/MDLogo.png"} className="w-full h-full object-cover" alt="" />
+      </div>
+      <div className="text-center">
+         <h2 className="text-3xl font-black uppercase italic tracking-tighter" style={{ color: colors.textPrimary }}>{player.username}</h2>
+         <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">{player.rank || 'GENIN'}</p>
+      </div>
 
+      <div className="grid grid-cols-3 gap-4 w-full">
+         <div className="bg-white/5 p-4 rounded-3xl border border-white/10 text-center">
+            <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Wins</span>
+            <span className="text-lg font-black text-emerald-400">{player.wins || 0}</span>
+         </div>
+         <div className="bg-white/5 p-4 rounded-3xl border border-white/10 text-center">
+            <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Losses</span>
+            <span className="text-lg font-black text-red-400">{player.losses || 0}</span>
+         </div>
+         <div className="bg-white/5 p-4 rounded-3xl border border-white/10 text-center">
+            <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">RYO</span>
+            <span className="text-lg font-black text-amber-400">{(player.coins || 0).toLocaleString()} RYO</span>
+         </div>
+      </div>
+
+      <button onClick={onClose} className="w-full py-4 text-white font-black rounded-2xl border-b-4 uppercase tracking-[0.1em] shadow-xl active:translate-y-1 transition-all"
+         style={{ backgroundColor: colors.accent, borderColor: colors.accentBorder }}>
+         Close Intel
+      </button>
+    </motion.div>
+  </div>
+);
 
 const TabContent = React.memo(({
   activeTab,
@@ -237,7 +277,9 @@ const TabContent = React.memo(({
   setShowQRScanner,
   userProfile,
   claimDailyReward,
-  rank
+  rank,
+  selectedTheme,
+  setSelectedTheme
 }: any) => {
   if (activeTab === 'shop') return <div className="h-full"><Shop /></div>;
   if (activeTab === 'ranking') return <div className="h-[400px] sm:h-full"><Leaderboard /></div>;
@@ -247,25 +289,23 @@ const TabContent = React.memo(({
 
   return (
     <div className="space-y-4">
-      {/* Mobile Info Overlay */}
-      <div className="xs:hidden flex items-center justify-between px-2 text-[8px] font-black uppercase opacity-60" style={{ color: colors.textPrimary }}>
-        <span>{rank.badge} {rank.name}</span>
+      <div className="flex items-center justify-between px-2 text-[10px] sm:text-xs font-black uppercase opacity-80" style={{ color: colors.textPrimary }}>
+        <span className="flex items-center gap-1">{rank.badge} {rank.name}</span>
         <span>LVL {Math.floor((userProfile?.xp || 0) / 1000) + 1}</span>
       </div>
 
-      {/* Daily Reward Banner */}
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={claimDailyReward}
-        className="sm:hidden w-full p-2.5 bg-gradient-to-r from-emerald-600/20 to-emerald-500/5 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-between group transition-all shadow-lg overflow-hidden relative"
+        className="w-full p-3 bg-gradient-to-r from-emerald-600/20 to-emerald-500/5 border-2 border-emerald-500/30 rounded-2xl flex items-center justify-between group transition-all shadow-lg overflow-hidden relative"
       >
         <div className="absolute inset-0 bg-emerald-500/5 animate-pulse pointer-events-none" />
         <div className="flex items-center gap-3 relative z-10">
           <Gift className="w-4 h-4 text-emerald-500" />
-          <span className="text-[9px] font-black uppercase text-emerald-400 tracking-tighter italic">Daily Jutsu Training</span>
+          <span className="text-[10px] font-black uppercase text-emerald-400 tracking-tighter italic">Daily Jutsu Training</span>
         </div>
-        <span className="text-[8px] font-black uppercase text-emerald-600 px-2 py-0.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">+100 ₱</span>
+        <span className="text-[9px] font-black uppercase text-emerald-600 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">+100 RYO</span>
       </motion.button>
 
       <div className="p-3 sm:p-5 rounded-[1.5rem] bg-black/10 backdrop-blur-md border border-white/5 shadow-2xl relative overflow-hidden group">
@@ -290,6 +330,21 @@ const TabContent = React.memo(({
                   style={{ backgroundColor: colors.bgInput, borderColor: colors.borderPrimary, color: colors.textPrimary }}
                 />
                 <Edit2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 opacity-20" />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                 <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest px-1">Region Theme</span>
+                 <div className="grid grid-cols-3 gap-2">
+                    {['PHILIPPINES', 'CHINA', 'AMERICA'].map(theme => (
+                       <button 
+                          key={theme}
+                          onClick={() => setSelectedTheme(theme)}
+                          className={`py-2 text-[9px] font-black uppercase rounded-xl border-b-2 transition-all shadow-md ${selectedTheme === theme ? 'bg-indigo-600 text-white border-indigo-900' : 'bg-black/20 text-slate-400 border-transparent'}`}
+                       >
+                          {theme}
+                       </button>
+                    ))}
+                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -369,6 +424,8 @@ interface Room {
   players: Record<string, { username: string; isReady: boolean; photoURL?: string }>;
   status: 'waiting' | 'playing';
   isPrivate?: boolean;
+  theme?: string;
+  createdAt?: number;
 }
 
 export default function Lobby() {
@@ -393,10 +450,22 @@ export default function Lobby() {
   const [qrRoomId, setQrRoomId] = useState<string | null>(null);
   const [isPrivateRoom, setIsPrivateRoom] = useState(false);
   const [showFriendsSidebar, setShowFriendsSidebar] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState('PHILIPPINES');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'waiting' | 'playing'>('all');
+  const [themeFilter, setThemeFilter] = useState('all');
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const initialPlayerCount = useRef<number>(0);
   const navigate = useNavigate();
 
-  // Auto-close QR Modal when someone joins
+  const filteredRooms = rooms.filter(room => {
+    const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (room.players?.[room.host]?.username || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || room.status === statusFilter;
+    const matchesTheme = themeFilter === 'all' || room.theme === themeFilter;
+    return matchesSearch && matchesStatus && matchesTheme;
+  });
+
   useEffect(() => {
     if (qrRoomId) {
       const room = rooms.find(r => r.id === qrRoomId);
@@ -405,11 +474,10 @@ export default function Lobby() {
         if (initialPlayerCount.current === 0) {
           initialPlayerCount.current = currentCount;
         } else if (currentCount > initialPlayerCount.current) {
-          // Someone joined!
           setTimeout(() => {
             setQrRoomId(null);
             initialPlayerCount.current = 0;
-          }, 1000); // Small delay for visual confirmation
+          }, 1000);
         }
       }
     } else {
@@ -417,20 +485,15 @@ export default function Lobby() {
     }
   }, [qrRoomId, rooms]);
 
-  // Optimized Chakra Particle with CSS Animations for zero lag
   const ChakraParticle = React.memo(({ color }: { color: string }) => {
     const [style, setStyle] = useState<any>(null);
-
     useEffect(() => {
       const isMobile = window.innerWidth < 768;
-      // Drastically reduce particles on mobile
       if (isMobile && Math.random() > 0.15) return;
-
       const duration = 10 + Math.random() * 10;
       const delay = Math.random() * 10;
       const left = Math.random() * 100;
       const size = 1 + Math.random() * 3;
-
       setStyle({
         left: `${left}%`,
         bottom: '-20px',
@@ -446,13 +509,10 @@ export default function Lobby() {
         zIndex: 5
       });
     }, [color]);
-
     if (!style) return null;
-
     return <div style={style} className="chakra-particle" />;
   });
 
-  // Heartbeat - Active Status
   useEffect(() => {
     if (!user) return;
     const heartbeatRef = ref(db, `users/${user.uid}`);
@@ -464,17 +524,15 @@ export default function Lobby() {
 
   useEffect(() => {
     if (!user) return;
-
     const userRef = ref(db, `users/${user.uid}`);
     const unsubUser = onValue(userRef, (snap) => {
       const data = snap.val();
       if (data) {
         setUserProfile(data);
-        setProfile(data); // Always sync store profile with DB updates
+        setProfile(data);
       }
       setHasLoaded(true);
     });
-
     const roomsRef = ref(db, 'rooms');
     const unsubRooms = onValue(roomsRef, (snap) => {
       const data = snap.val();
@@ -488,7 +546,6 @@ export default function Lobby() {
         setRooms([]);
       }
     });
-
     return () => {
       unsubUser();
       unsubRooms();
@@ -503,12 +560,10 @@ export default function Lobby() {
   const handleProfilePicChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
     if (file.size > 2 * 1024 * 1024) {
       alert("Scroll size too large! Please choose an image smaller than 2MB.");
       return;
     }
-
     setIsUploading(true);
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -517,18 +572,13 @@ export default function Lobby() {
         const image = new Image();
         image.src = reader.result as string;
         image.onload = async () => {
-          // SIMPLE CROP TO SQUARE
           const canvas = document.createElement('canvas');
           const size = Math.min(image.width, image.height);
           canvas.width = 400;
           canvas.height = 400;
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            ctx.drawImage(
-              image,
-              (image.width - size) / 2, (image.height - size) / 2, size, size,
-              0, 0, 400, 400
-            );
+            ctx.drawImage(image, (image.width - size) / 2, (image.height - size) / 2, size, size, 0, 0, 400, 400);
             const base64String = canvas.toDataURL('image/jpeg', 0.7);
             await update(ref(db, `users/${user.uid}`), { photoURL: base64String });
             if (profile) setProfile({ ...profile, photoURL: base64String });
@@ -542,65 +592,45 @@ export default function Lobby() {
     };
   };
 
-  const handleUpdateName = async () => {
-    if (!newName.trim() || !user) return;
-    try {
-      await update(ref(db, `users/${user.uid}`), { username: newName.trim() });
-      if (profile) setProfile({ ...profile, username: newName.trim() });
-      setIsEditingName(false);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const generateRoomCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
-
   const createRoom = async (isPrivate = false) => {
     if (!user || !userProfile) return;
-
     if (!newRoomName.trim()) {
       alert("Please name your mission before deploying!");
       return;
     }
+    setLoading(true);
 
-    const roomName = newRoomName.trim();
+    const boardMap: Record<string, string> = {
+      'war_board': '/img/Board/4thGreatNinjaWarBoard.jpg',
+      'akatsuki_board': '/img/Board/AkatsukiBoard.jpg',
+      'hagoromo_board': '/img/Board/HagoromoBoard.jpg',
+      'kage_board': '/img/Board/KageBoard.png',
+      'tentails_board': '/img/Board/Ten-TailsBoard.jpg'
+    };
+    const boardImage = boardMap[userProfile.activeBoard] || '/img/Board.png';
 
     try {
-      setLoading(true);
-      const roomId = generateRoomCode();
+      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       const roomRef = ref(db, `rooms/${roomId}`);
-
-      // Check if room with this ID already exists
-      const existing = await get(roomRef);
-      if (existing.exists()) {
-        // Simple collision handling: try again once or use push key as fallback
-        // But for simplicity in this demo, we'll just use the code
-      }
-
       const initialRoom = {
         id: roomId,
-        name: roomName,
+        name: newRoomName.trim(),
         host: user.uid,
         status: 'waiting',
         isPrivate,
+        theme: selectedTheme,
+        boardImage,
         createdAt: Date.now(),
         players: {
           [user.uid]: {
             username: userProfile.username || 'Shinobi',
             isReady: true,
             photoURL: userProfile.photoURL || null,
-            color: '#ea580c'
+            color: '#ea580c',
+            isHost: true
           }
         }
       };
-
       await set(roomRef, initialRoom);
       setNewRoomName('');
       navigate(`/game/${roomId}`);
@@ -613,83 +643,35 @@ export default function Lobby() {
   };
 
   const joinRoom = async (rawRoomId: string, isFromQR = false) => {
-    if (!user || !userProfile) {
-      alert("Summoning failure: You must have an active Shinobi profile to intercept missions.");
-      return;
-    }
-
+    if (!user || !userProfile) return;
     try {
       setLoading(true);
-      // Clean and standardize ID
-      let roomId = rawRoomId.trim().toUpperCase();
-      
-      // Handle full Game URLs
-      if (roomId.includes('/GAME/')) {
-        const parts = roomId.split('/GAME/');
-        roomId = parts[parts.length - 1].split(/[?#]/)[0];
-      }
-      
-      // Strip any extra non-alphanumeric characters but keep it strict
-      roomId = roomId.replace(/[^A-Z0-9]/g, '');
-
-      if (!roomId || roomId.length < 3) {
-        alert("Invalid Mission Code format.");
-        setLoading(false);
-        return;
-      }
-
-      console.log("Attempting to intercept mission:", roomId);
-
+      let roomId = rawRoomId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       const roomRef = ref(db, `rooms/${roomId}`);
       const roomSnap = await get(roomRef);
-      
       if (!roomSnap.exists()) {
-        alert(`Mission Scroll [${roomId}] not found in the archives.`);
-        setLoading(false);
+        alert("Mission Scroll not found.");
         return;
       }
-
       const roomData = roomSnap.val();
-
-      // PRIVATE ROOM LOGIC
       if (roomData.isPrivate && !isFromQR && roomData.host !== user.uid) {
-        alert("CLASSIFIED INTEL: You need to scan the physical Scroll's QR Code to infiltrate this mission.");
-        setLoading(false);
+        alert("CLASSIFIED INTEL: You need a QR scan.");
         return;
       }
-
       if (roomData.status === 'playing') {
-        alert("COMBAT IN PROGRESS: This mission has already deployed to the battlefield.");
-        setLoading(false);
+        alert("COMBAT IN PROGRESS.");
         return;
       }
-
-      const playersCount = Object.keys(roomData.players || {}).length;
-      if (playersCount >= 6) {
-        alert("SQUAD CAPACITY FULL: This mission cannot accommodate more Shinobi.");
-        setLoading(false);
-        return;
-      }
-
-      // Prepare player data for the room
-      const playerJoinData = {
+      await update(ref(db, `rooms/${roomId}/players/${user.uid}`), {
         username: userProfile.username || 'Shinobi',
         isReady: false,
         photoURL: userProfile.photoURL || null,
         color: '#3b82f6',
         joinedAt: Date.now()
-      };
-
-      // Perform the update
-      await update(ref(db, `rooms/${roomId}/players/${user.uid}`), playerJoinData);
-
-      // Successfully joined, now navigate
-      console.log("Successfully infiltrated room:", roomId);
+      });
       navigate(`/game/${roomId}`);
-      
-    } catch (err: any) {
-      console.error("Interception Error:", err);
-      alert(`Jutsu Failure: ${err.message || "Failed to establish connection to the mission scroll."}`);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -702,28 +684,17 @@ export default function Lobby() {
     }
   };
 
-
-
   const claimDailyReward = async () => {
     if (!profile || !user) return;
     const now = Date.now();
     const lastClaim = profile.lastDailyClaim || 0;
-
     if (now - lastClaim < 24 * 60 * 60 * 1000) {
-      alert("Training complete for today. Return tomorrow!");
+      alert("Training complete for today.");
       return;
     }
-
-    try {
-      const newCoins = (profile.coins || 0) + 100;
-      await update(ref(db, `users/${user.uid}`), {
-        coins: newCoins,
-        lastDailyClaim: now
-      });
-      alert("Daily Training Complete! +100 ₱ obtained.");
-    } catch (e) {
-      console.error(e);
-    }
+    const newCoins = (profile.coins || 0) + 100;
+    await update(ref(db, `users/${user.uid}`), { coins: newCoins, lastDailyClaim: now });
+    alert("Daily Training Complete! +100 ₱ obtained.");
   };
 
   if (!profile || !userProfile || !hasLoaded) {
@@ -731,8 +702,6 @@ export default function Lobby() {
       <div className="h-screen flex flex-col items-center justify-center gap-4 relative overflow-hidden"
         style={{ backgroundColor: colors.bgPrimary, color: colors.bgSecondary }}>
         <RealisticBackground />
-        {[...Array(20)].map((_, i) => <ChakraParticle key={i} color={colors.accent} />)}
-
         <div className="relative z-10 flex flex-col items-center">
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} className="mb-6">
             <div className="w-24 h-24 rounded-full border-b-4 border-orange-500 flex items-center justify-center shadow-[0_0_50px_rgba(249,115,22,0.4)]">
@@ -747,8 +716,6 @@ export default function Lobby() {
 
   const rank = getRankFromXP(userProfile?.xp || 0);
   const nextRankInfo = getXPForNextRank(userProfile?.xp || 0);
-  // Find the next rank object to get its name
-  const nextRankObj = RANKS.find(r => r.level === rank.level + 1);
   const progress = nextRankInfo.percent;
 
   return (
@@ -780,76 +747,77 @@ export default function Lobby() {
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 p-2 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.6)] mb-1.5 sm:mb-4 border-2 relative overflow-hidden group/header transition-all border-orange-500/20 z-50"
           style={{ backgroundColor: colors.headerBg }}>
           <div className="absolute inset-0 paper-texture opacity-20 pointer-events-none" />
-          <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none group-hover/header:bg-orange-500/20 transition-all duration-700" />
           
           <div className="flex items-center gap-3 sm:gap-4 relative z-10 w-full sm:w-auto mb-2 sm:mb-0">
-            <div className="relative group/avatar cursor-pointer shrink-0" onClick={() => fileInputRef.current?.click()}>
+            <div className="relative group/avatar cursor-pointer shrink-0" onClick={() => setSelectedPlayer(userProfile)}>
               <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-xl sm:rounded-[2rem] overflow-hidden border-2 shadow-2xl transition-all duration-500 group-hover/avatar:rotate-3 group-hover/avatar:scale-105"
                 style={{ borderColor: colors.borderAccent || colors.accent }}>
                 <img src={userProfile?.photoURL || "/img/MDLogo.png"} alt="Ninja" className="w-full h-full object-cover" />
-                {isUploading && (
-                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center backdrop-blur-sm">
-                    <Loader2 className="w-6 h-6 text-white animate-spin" />
-                  </div>
-                )}
               </div>
-              <div className="absolute -bottom-1 -right-1 p-1.5 bg-orange-600 rounded-xl text-white shadow-lg scale-90 sm:scale-100 border border-white/20">
+              <div className="absolute -bottom-1 -right-1 p-1.5 bg-orange-600 rounded-xl text-white shadow-lg border border-white/20" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
                 <Camera className="w-3.5 h-3.5" />
               </div>
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleProfilePicChange} />
             </div>
 
-            <div className="flex flex-col min-w-0 flex-1 gap-0.5 sm:gap-1">
-              <div className="flex items-center gap-2">
-                {isEditingName ? (
-                  <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-xl border border-white/10 shrink-0">
-                    <input
-                      type="text"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      placeholder={userProfile?.username}
-                      className="px-2 py-1 bg-transparent text-xs font-black w-24 sm:w-32 outline-none text-white uppercase"
-                    />
-                    <button onClick={handleUpdateName} className="p-1 hover:scale-110 text-emerald-500"><Play className="w-4 h-4" /></button>
+            <div className="flex-1 min-w-0">
+               <div className="flex items-center gap-2 mb-1">
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onBlur={async () => {
+                          if (newName.trim() && user) {
+                            await update(ref(db, `users/${user.uid}`), { username: newName.trim() });
+                          }
+                          setIsEditingName(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const input = e.target as HTMLInputElement;
+                            input.blur();
+                          }
+                        }}
+                        className="bg-black/20 text-white border-b-2 border-orange-500 outline-none px-2 py-1 text-lg sm:text-xl font-black uppercase italic w-full max-w-[200px]"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group/name" onClick={() => { setIsEditingName(true); setNewName(userProfile?.username || ''); }}>
+                      <h1 className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter text-glow truncate cursor-pointer hover:text-orange-500 transition-colors" style={{ color: colors.textPrimary }}>
+                        {userProfile?.username || 'Shinobi'}
+                      </h1>
+                      <Edit2 className="w-3 h-3 opacity-0 group-hover/name:opacity-50 text-white transition-opacity" />
+                    </div>
+                  )}
+               </div>
+               <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-1.5 bg-black/20 rounded-xl border border-white/5 backdrop-blur-sm shadow-inner">
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                     <Medal className="w-3 h-3 text-orange-500" />
+                     <span className="text-[9px] font-black uppercase text-orange-200">{rank.name}</span>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2 min-w-0">
-                    <h1 className="text-base sm:text-2xl font-black uppercase tracking-tighter italic truncate text-glow" style={{ color: colors.textPrimary }}>
-                      {userProfile?.username || 'Shinobi'}
-                    </h1>
-                    <button onClick={() => { setNewName(userProfile?.username || ''); setIsEditingName(true); }}
-                      className="p-1 opacity-50 hover:opacity-100 transition-all">
-                      <Edit2 className="w-3.5 h-3.5 text-orange-400" />
-                    </button>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                     <Coins className="w-3 h-3 text-emerald-500" />
+                     <span className="text-[9px] font-black uppercase text-emerald-200">{userProfile?.coins || 0}</span>
                   </div>
-                )}
-                <div className="hidden xs:flex px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black uppercase border border-orange-500/20 shadow-inner shrink-0"
-                  style={{ backgroundColor: colors.bgCard, color: colors.accent }}>
-                  {rank.badge} {rank.name}
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-6 mt-0.5">
-                <div className="flex flex-col gap-1 w-full sm:w-auto">
-                  <div className="w-full sm:w-48 h-2 rounded-full bg-black/30 overflow-hidden shadow-inner border border-white/5">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progress}%` }}
-                      transition={{ duration: 1.5, ease: "easeOut" }}
-                      className="h-full bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 rounded-full shadow-[0_0_8px_rgba(249,115,22,0.5)]" 
-                    />
+                  <div className="flex items-center gap-2 ml-auto sm:ml-0 bg-black/20 px-3 py-1 rounded-lg">
+                     <span className="text-[7px] font-black text-white/40 uppercase">LVL {rank.level}</span>
+                     <div className="w-16 sm:w-24 h-1 bg-white/5 rounded-full overflow-hidden shadow-inner">
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-gradient-to-r from-orange-600 to-orange-400" />
+                     </div>
                   </div>
-                  <div className="flex justify-between items-center sm:justify-start">
-                    <span className="text-[8px] sm:text-[9px] font-black uppercase opacity-60 tracking-[0.1em] text-[#94a3b8]">
-                      {nextRankObj ? `NEXT: ${nextRankObj.name}` : 'MAX RANK'}
-                    </span>
-                    <span className="xs:hidden text-[8px] font-black text-amber-500 ml-2">{rank.badge}</span>
+                  <div className="flex gap-2">
+                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-600/20 border border-emerald-600/30">
+                        <Trophy className="w-3 h-3 text-emerald-500" />
+                        <span className="text-[9px] font-black text-emerald-400">{userProfile?.wins || 0}W</span>
+                     </div>
+                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-600/20 border border-red-600/30">
+                        <Skull className="w-3 h-3 text-red-500" />
+                        <span className="text-[9px] font-black text-red-400">{userProfile?.losses || 0}L</span>
+                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <CurrencyBill amount={userProfile?.coins || 0} icon={<img src="/img/Currency/1Peso.png" className="w-4.5 h-4.5" />} color="#f59e0b" label="PESO" />
-                </div>
-              </div>
+               </div>
             </div>
           </div>
 
@@ -863,9 +831,7 @@ export default function Lobby() {
                 style={showFriendsSidebar ? { borderColor: '#450a0a' } : { borderColor: 'rgba(255,255,255,0.05)' }}
               >
                 <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-                {showFriendsSidebar && (
-                  <motion.div layoutId="friend-pill" className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full border-2 border-white shadow-lg" />
-                )}
+                {showFriendsSidebar && <motion.div layoutId="friend-pill" className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full border-2 border-white" />}
               </motion.button>
               
               <motion.button
@@ -875,11 +841,9 @@ export default function Lobby() {
                 className={`p-2.5 sm:p-3 rounded-xl transition-all relative border-b-4 shadow-xl flex items-center justify-center btn-shinobi ${showChat ? 'bg-blue-600 text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}
                 style={showChat ? { borderColor: '#1e3a8a', backgroundColor: '#2563eb' } : { borderColor: 'rgba(255,255,255,0.05)', backgroundColor: colors.accent }}
               >
-                <MessageSquareText className="w-4 h-4 sm:w-5 sm:h-5 relative z-10" />
+                <MessageSquareText className="w-4 h-4 sm:w-5 sm:h-5" />
                 {unreadCount > 0 && !showChat && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 sm:w-6 sm:h-6 bg-red-600 text-white text-[8px] sm:text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center animate-bounce shadow-2xl z-20">
-                    {unreadCount}
-                  </span>
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 sm:w-6 sm:h-6 bg-red-600 text-white text-[8px] sm:text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center animate-bounce">{unreadCount}</span>
                 )}
               </motion.button>
             </div>
@@ -893,205 +857,213 @@ export default function Lobby() {
           </div>
         </header>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 min-h-0">
-          <ThreeDCard className="lg:col-span-1 h-full min-h-0">
-            <div className="p-3 sm:p-5 rounded-2xl shadow-2xl border-x-4 sm:border-x-8 relative flex flex-col h-full overflow-hidden transition-all"
-              style={{ backgroundColor: colors.bgTertiary, borderColor: colors.borderPrimary }}>
-              <div className="absolute inset-0 opacity-10 paper-texture pointer-events-none" />
-              <CornerKunai className="top-2 left-2 rotate-[-45deg]" />
-              <CornerKunai className="bottom-2 right-2 rotate-[135deg]" />
-
-              <nav className="flex gap-1.5 sm:gap-2 mb-3 sm:mb-6 p-1 bg-black/20 rounded-2xl z-10 shrink-0 overflow-x-auto custom-scrollbar no-scrollbar">
-                {(['mission', 'friends', 'shop', 'ranking', 'train', 'history'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all relative overflow-hidden min-w-[60px] sm:min-w-0 ${activeTab === tab ? 'text-white shadow-xl translate-y-[-2px]' : 'text-slate-500 hover:text-slate-300'
-                      }`}
-                    style={activeTab === tab ? { backgroundColor: colors.accent } : {}}
-                  >
-                    <div className={`${activeTab === tab ? 'scale-110' : 'scale-90 opacity-60'} transition-transform`}>
-                      {tab === 'mission' && <Sword className="w-4 h-4 sm:w-5 sm:h-5" />}
-                      {tab === 'friends' && <Users className="w-4 h-4 sm:w-5 sm:h-5" />}
-                      {tab === 'shop' && <Gift className="w-4 h-4 sm:w-5 sm:h-5" />}
-                      {tab === 'ranking' && <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />}
-                      {tab === 'train' && <Zap className="w-4 h-4 sm:w-5 sm:h-5" />}
-                      {tab === 'history' && <History className="w-4 h-4 sm:w-5 sm:h-5" />}
-                    </div>
-                    <span className="text-[7px] font-black uppercase tracking-tighter sm:hidden">
-                      {tab === 'friends' ? 'Alliance' : tab}
-                    </span>
-                  </button>
-                ))}
-              </nav>
-
-              <div className="flex-1 flex flex-col min-h-0 z-10 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 pb-24 lg:pb-0">
+          <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 bg-black/5 rounded-[2rem] border border-white/5 relative overflow-hidden">
+               <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                 <AnimatePresence mode="wait">
+                  {activeTab !== 'mission' ? (
                     <motion.div
                       key={activeTab}
-                      initial={{ opacity: 0, x: window.innerWidth < 768 ? 0 : -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: window.innerWidth < 768 ? 0 : 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="min-h-full relative z-20"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="h-full"
                     >
-                    <TabContent 
-                      activeTab={activeTab}
-                      newRoomName={newRoomName}
-                      setNewRoomName={setNewRoomName}
-                      setIsPrivateRoom={setIsPrivateRoom}
-                      isPrivateRoom={isPrivateRoom}
-                      createRoom={createRoom}
-                      loading={loading}
-                      colors={colors}
-                      joinRoomId={joinRoomId}
-                      setJoinRoomId={setJoinRoomId}
-                      joinRoom={joinRoom}
-                      setShowQRScanner={setShowQRScanner}
-                      userProfile={userProfile}
-                      claimDailyReward={claimDailyReward}
-                      rank={rank}
-                    />
-                  </motion.div>
+                      <TabContent 
+                        activeTab={activeTab} 
+                        newRoomName={newRoomName} 
+                        setNewRoomName={setNewRoomName} 
+                        setIsPrivateRoom={setIsPrivateRoom} 
+                        isPrivateRoom={isPrivateRoom} 
+                        createRoom={createRoom} 
+                        loading={loading} 
+                        colors={colors} 
+                        joinRoomId={joinRoomId} 
+                        setJoinRoomId={setJoinRoomId} 
+                        joinRoom={joinRoom} 
+                        setShowQRScanner={setShowQRScanner} 
+                        userProfile={userProfile} 
+                        claimDailyReward={claimDailyReward} 
+                        rank={rank} 
+                        selectedTheme={selectedTheme} 
+                        setSelectedTheme={setSelectedTheme} 
+                      />
+                    </motion.div>
+                  ) : (
+                    <div className="flex flex-col gap-8">
+                      {/* Search & Filter Header (Above everything) */}
+                      <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+                           <div className="flex flex-col">
+                              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500 italic leading-none mb-1">Missions Lounge</span>
+                              <span className="text-[8px] font-bold text-slate-500 uppercase">Search available combat dispatches</span>
+                           </div>
+                           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                              <input 
+                                type="text" 
+                                value={searchTerm} 
+                                onChange={(e) => setSearchTerm(e.target.value)} 
+                                placeholder="Search Missions..." 
+                                className="flex-1 sm:flex-none px-4 py-2 bg-black/40 backdrop-blur-md rounded-xl border border-white/20 text-[10px] font-bold text-white outline-none focus:border-orange-500/50 placeholder:text-white/50" 
+                              />
+                              <select 
+                                value={statusFilter} 
+                                onChange={(e: any) => setStatusFilter(e.target.value)} 
+                                className="bg-black/40 backdrop-blur-md text-white rounded-xl border border-white/20 text-[9px] font-black px-3 py-2 outline-none cursor-pointer hover:bg-black/60 transition-colors"
+                              >
+                                 <option value="all" className="bg-slate-900 text-white">ANY STATUS</option>
+                                 <option value="waiting" className="bg-slate-900 text-white">WAITING</option>
+                                 <option value="playing" className="bg-slate-900 text-white">PLAYING</option>
+                              </select>
+                           </div>
+                        </div>
+                        <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                      </div>
+
+                      {/* Mobile-only Create Room (Dispatch Scroll) Section */}
+                      <div className="block lg:hidden">
+                        <TabContent 
+                          activeTab="create"
+                          newRoomName={newRoomName} 
+                          setNewRoomName={setNewRoomName} 
+                          setIsPrivateRoom={setIsPrivateRoom} 
+                          isPrivateRoom={isPrivateRoom} 
+                          createRoom={createRoom} 
+                          loading={loading} 
+                          colors={colors} 
+                          joinRoomId={joinRoomId} 
+                          setJoinRoomId={setJoinRoomId} 
+                          joinRoom={joinRoom} 
+                          setShowQRScanner={setShowQRScanner} 
+                          userProfile={userProfile} 
+                          claimDailyReward={claimDailyReward} 
+                          rank={rank} 
+                          selectedTheme={selectedTheme} 
+                          setSelectedTheme={setSelectedTheme} 
+                        />
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 px-2">
+                           <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">Active Dispatches</span>
+                           <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                        </div>
+
+                        {filteredRooms.length === 0 ? (
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center opacity-20 py-10">
+                            <ScrollText className="w-16 h-16 mb-4" />
+                            <p className="text-xs font-black italic">No missions detected.</p>
+                          </motion.div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-3">
+                            {filteredRooms.map((room) => (
+                              <RoomItem key={room.id} room={room} user={user} colors={colors} joinRoom={joinRoom} deleteRoom={deleteRoom} setQrRoomId={setQrRoomId} setShowQRScanner={setShowQRScanner} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </AnimatePresence>
               </div>
-              
-              <div className="hidden sm:block shrink-0 mt-2">
-                <button onClick={claimDailyReward} className="w-full p-3 sm:p-4 border-2 rounded-2xl flex items-center justify-between group transition-all hover:scale-105 active:scale-95 shadow-xl relative overflow-hidden" style={{ backgroundColor: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.3)' }}>
-                  <div className="flex items-center gap-3 relative z-10">
-                    <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 group-hover:rotate-12 transition-transform" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-[10px] sm:text-xs font-black text-emerald-800 uppercase italic">Daily Jutsu Training</span>
-                      <span className="text-[8px] sm:text-[10px] font-bold text-emerald-600 uppercase flex items-center gap-1">Claim 100 ₱ <Sparkles className="w-3 h-3" /></span>
-                    </div>
-                  </div>
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 relative z-10" />
-                </button>
+            </div>
+
+            {/* Desktop-only secondary Sidebar for Create/Admin actions when mission tab is active */}
+            <div className="hidden lg:flex w-80 h-full flex-col gap-4">
+              {/* Tab Navigation for Desktop */}
+              <div className="flex gap-1.5 p-2 bg-black/20 rounded-2xl border border-white/5">
+                {[
+                  { id: 'mission', icon: ScrollText, label: 'Missions' },
+                  { id: 'shop', icon: ShoppingBag, label: 'Shop' },
+                  { id: 'ranking', icon: Trophy, label: 'Rankings' },
+                  { id: 'train', icon: Sword, label: 'Trainer' },
+                  { id: 'history', icon: History, label: 'Records' }
+                ].map((tab: any) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl transition-all relative group ${activeTab === tab.id ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                  >
+                    <tab.icon className={`w-4 h-4 mb-1 transition-transform group-hover:scale-110 ${activeTab === tab.id ? 'animate-pulse' : ''}`} />
+                    <span className="text-[7px] font-black uppercase tracking-widest">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex-1 bg-black/10 backdrop-blur-md rounded-[2.5rem] border border-white/5 shadow-2xl p-4 overflow-y-auto custom-scrollbar">
+                 <TabContent 
+                  activeTab="create" // Force Create Room form for desktop sidebar
+                  newRoomName={newRoomName} 
+                  setNewRoomName={setNewRoomName} 
+                  setIsPrivateRoom={setIsPrivateRoom} 
+                  isPrivateRoom={isPrivateRoom} 
+                  createRoom={createRoom} 
+                  loading={loading} 
+                  colors={colors} 
+                  joinRoomId={joinRoomId} 
+                  setJoinRoomId={setJoinRoomId} 
+                  joinRoom={joinRoom} 
+                  setShowQRScanner={setShowQRScanner} 
+                  userProfile={userProfile} 
+                  claimDailyReward={claimDailyReward} 
+                  rank={rank} 
+                  selectedTheme={selectedTheme} 
+                  setSelectedTheme={setSelectedTheme} 
+                />
               </div>
             </div>
-          </ThreeDCard>
+        </main>
+      </div>
 
-          <ThreeDCard className="lg:col-span-2 h-full min-h-0">
-            <div className="p-3 sm:p-6 rounded-2xl shadow-2xl border-x-4 sm:border-x-8 relative flex-1 flex flex-col h-full overflow-hidden transition-all"
-              style={{ backgroundColor: colors.bgTertiary, borderColor: colors.borderPrimary }}>
-              <div className="absolute inset-0 opacity-10 paper-texture pointer-events-none" />
-              <CornerKunai className="top-2 right-2 rotate-[45deg] scale-110" />
-              <CornerKunai className="bottom-2 left-2 rotate-[-135deg] scale-110" />
-
-              <div className="flex items-center justify-between mb-3 sm:mb-6 z-10">
-                <h2 className="text-sm sm:text-2xl font-black flex items-center gap-2 sm:gap-3 uppercase tracking-tighter italic" style={{ color: colors.textPrimary }}>
-                  <div className="p-1.5 sm:p-2 bg-orange-500/10 rounded-lg sm:rounded-xl"><Users className="w-5 h-5 sm:w-6 sm:h-6 text-orange-700" /></div> Active Missions
-                </h2>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 border text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> {rooms.length} SEALS OPEN
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
-                {rooms.length === 0 ? (
-                  <div className="text-center py-20 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-4" style={{ backgroundColor: colors.scrollBg, borderColor: `${colors.borderPrimary}30` }}>
-                    <ScrollText className="w-12 h-12 opacity-20" />
-                    <p className="font-black text-lg uppercase tracking-tight opacity-40">No missions found.</p>
-                  </div>
-                                ) : (
-                  <div className="grid gap-4 pb-4">
-                    {rooms.map((room) => (
-                      <RoomItem 
-                        key={room.id} 
-                        room={room} 
-                        user={user} 
-                        colors={colors} 
-                        joinRoom={joinRoom} 
-                        deleteRoom={deleteRoom} 
-                        setQrRoomId={setQrRoomId} 
-                        setShowQRScanner={setShowQRScanner} 
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </ThreeDCard>
+      {showChat && (
+        <div className="fixed bottom-24 left-6 z-50">
+          <ChatSystem username={userProfile?.username || 'Shinobi'} photoURL={userProfile?.photoURL} colors={colors} isOpen={showChat} setIsOpen={setShowChat} />
         </div>
-      </div>
-
-      {/* Chat System Toggle Container (Floating Modal Area) - Moved to Left Side per User Request */}
-      <div className="fixed bottom-24 left-6 z-50 flex flex-col items-start gap-4 pointer-events-none">
-        <AnimatePresence>
-          {showChat && (
-            <motion.div
-              initial={{ opacity: 0, x: -50, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -50, scale: 0.9 }}
-              className="pointer-events-auto"
-            >
-              <ChatSystem
-                username={userProfile?.username || 'Shinobi'}
-                photoURL={userProfile?.photoURL}
-                colors={colors}
-                isOpen={showChat}
-                setIsOpen={setShowChat}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {qrRoomId && (
-        <QRModal roomId={qrRoomId} onClose={() => setQrRoomId(null)} colors={colors} />
       )}
 
-      {showQRScanner && (
-        <QRScanner
-          onClose={() => setShowQRScanner(false)}
-          onScan={(id) => {
-            setJoinRoomId(id);
-            setShowQRScanner(false);
-            joinRoom(id, true);
-          }}
-        />
-      )}
-      <Footer />
-
-      {/* Friends Sidebar Drawer (Left Side) */}
+      {qrRoomId && <QRModal roomId={qrRoomId} onClose={() => setQrRoomId(null)} colors={colors} />}
+      
+      {showQRScanner && <QRScanner onClose={() => setShowQRScanner(false)} onScan={(id) => { setJoinRoomId(id); setShowQRScanner(false); joinRoom(id, true); }} />}
+      
       <AnimatePresence>
         {showFriendsSidebar && (
           <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowFriendsSidebar(false)}
-              className="fixed inset-0 z-[150] bg-black/40 backdrop-blur-sm lg:hidden"
-            />
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 z-[200] w-[300px] sm:w-[360px] bg-white/95 backdrop-blur-xl border-r-4 shadow-[10px_0_50px_rgba(0,0,0,0.3)] flex flex-col pt-24"
-              style={{ backgroundColor: colors.bgPrimary, borderColor: colors.borderPrimary }}
-            >
-              <div className="absolute top-0 right-0 p-4">
-                <button onClick={() => setShowFriendsSidebar(false)} className="p-2 hover:bg-black/5 rounded-xl transition-all">
-                  <X className="w-6 h-6" style={{ color: colors.textMuted }} />
-                </button>
-              </div>
-              <div className="px-6 py-4 border-b border-white/10 mb-4 bg-orange-600/5">
-                <h3 className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-3" style={{ color: colors.textPrimary }}>
-                  <div className="p-2 bg-orange-600 rounded-xl shadow-lg shadow-orange-600/20">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  Shinobi Alliance
-                </h3>
-              </div>
-              <div className="flex-1 overflow-y-auto px-6 custom-scrollbar pb-10">
-                <FriendsList user={user} colors={colors} />
-              </div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowFriendsSidebar(false)} className="fixed inset-0 z-[150] bg-black/40 backdrop-blur-sm lg:hidden" />
+            <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="fixed top-0 left-0 bottom-0 z-[200] w-[300px] sm:w-[360px] glass-ui shadow-2xl border-r-4 flex flex-col pt-24" style={{ backgroundColor: colors.bgPrimary, borderColor: colors.borderPrimary }}>
+              <div className="absolute top-0 right-0 p-4"><button onClick={() => setShowFriendsSidebar(false)}><X className="w-6 h-6 text-white/50" /></button></div>
+              <div className="px-6 py-4 border-b border-white/10 mb-4 bg-orange-600/5"><h3 className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-3" style={{ color: colors.textPrimary }}><Users className="w-5 h-5 text-orange-600" /> Shinobi Alliance</h3></div>
+              <div className="flex-1 overflow-y-auto px-6 custom-scrollbar pb-10"><FriendsList user={user} colors={colors} /></div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      {/* Mobile Tab Navigation Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t-2 border-white/10 z-[100] px-4 pb-6 pt-3">
+         <div className="flex justify-between items-center max-w-md mx-auto">
+            {[
+               { id: 'mission', icon: ScrollText, label: 'Missions' },
+               { id: 'shop', icon: ShoppingBag, label: 'Shop' },
+               { id: 'ranking', icon: Trophy, label: 'Rankings' },
+               { id: 'train', icon: Sword, label: 'Trainer' },
+               { id: 'history', icon: History, label: 'Records' }
+            ].map(tab => (
+               <button 
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === tab.id ? 'text-orange-500 scale-110' : 'text-white/40'}`}
+               >
+                  <div className={`p-2 rounded-xl transition-all ${activeTab === tab.id ? 'bg-orange-500/20 shadow-[0_0_15px_rgba(234,88,12,0.3)]' : ''}`}>
+                    <tab.icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-[7px] font-black uppercase tracking-widest">{tab.label}</span>
+               </button>
+            ))}
+         </div>
+      </div>
+
+      {selectedPlayer && <PlayerStatsModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} colors={colors} />}
     </div>
   );
 }

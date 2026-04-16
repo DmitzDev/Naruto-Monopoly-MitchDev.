@@ -63,7 +63,35 @@ export default function Dice2D({ result }: { result: [number, number] | null }) 
   );
 
   return (
-    <div className="flex gap-4 justify-center items-center py-6 bg-transparent px-8">
+    <div className="flex gap-4 sm:gap-8 justify-center items-center py-6 bg-transparent px-8 relative">
+       {/* Particle effects on success */}
+       <AnimatePresence>
+        {!rolling && result && (
+           <motion.div 
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             className="absolute inset-0 pointer-events-none z-[-1]"
+           >
+              {[...Array(12)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                  animate={{ 
+                    x: (Math.random() - 0.5) * 300, 
+                    y: (Math.random() - 0.5) * 300, 
+                    opacity: 0, 
+                    scale: 0 
+                  }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="absolute left-1/2 top-1/2 w-2 h-2 rounded-full"
+                  style={{ backgroundColor: ['#fb923c', '#f59e0b', '#10b981', '#ef4444'][i % 4] }}
+                />
+              ))}
+           </motion.div>
+        )}
+       </AnimatePresence>
+
       <Die value={frame1} isRolling={rolling} />
       <Die value={frame2} isRolling={rolling} />
     </div>

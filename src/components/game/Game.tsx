@@ -7,7 +7,7 @@ import { db } from '../../firebase/config';
 import { ref, onValue, set, remove, update, push, get, serverTimestamp, query, orderByChild, limitToLast } from 'firebase/database';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { FloatingShuriken, SakuraPetal, RealisticBackground, ThreeDCard } from '../common/UIComponents';
-import { X, Trophy, ShoppingBag, Star, Zap, Medal, Check, Lock, Coins, Shield, Sparkles, LogOut, Users, Play, Loader2, AlertCircle, Home, History, ScrollText, Copy, Plus, Trash2, Landmark, CreditCard, TrendingUp, ChevronLeft, ChevronRight, Menu, Volume2, VolumeX, MessageSquareText, MessageCircle, QrCode, Skull } from 'lucide-react';
+import { X, Trophy, ShoppingBag, Star, Zap, Medal, Check, Lock, Coins, Shield, Sparkles, LogOut, Users, Play, Loader2, AlertCircle, Home, History, ScrollText, Copy, Plus, Trash2, Landmark, CreditCard, TrendingUp, ChevronLeft, ChevronRight, Menu, Volume2, VolumeX, MessageSquareText, MessageCircle, QrCode, Skull, Save, Image as ImageIcon } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import Board2D from './Board2D';
 import Dice2D from './Dice2D';
@@ -279,10 +279,82 @@ export default function Game() {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [showAkatsukiIntro, setShowAkatsukiIntro] = useState(false);
   const [showHokageIntro, setShowHokageIntro] = useState(false);
+  const [showKageIntro, setShowKageIntro] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { setIsTrailerPlaying } = useUIStore();
+  const [logFilter, setLogFilter] = useState('all');
+  const [isAcceptingTrade, setIsAcceptingTrade] = useState(false);
+  const [showBoardSelect, setShowBoardSelect] = useState(false);
+
+  const isHost = room?.host === user?.uid;
+
+  const togglePause = useCallback(async () => {
+    if (!isHost || !roomId) return;
+    const newPauseState = !gameState?.isPaused;
+    await update(ref(db, `gameStates/${roomId}`), { isPaused: newPauseState });
+    if (showToast) {
+       showToast(newPauseState ? "Mission Paused" : "Mission Resummed", newPauseState ? "🔒" : "▶️");
+    }
+  }, [isHost, roomId, gameState?.isPaused, showToast]);
+
+  // Monitor trailer status for global music override
+  useEffect(() => {
+    if (room?.status === 'intro') {
+      setIsTrailerPlaying(true);
+    } else {
+      setIsTrailerPlaying(false);
+    }
+    // Clean up on unmount
+    return () => setIsTrailerPlaying(false);
+  }, [room?.status, setIsTrailerPlaying]);
+
+  const saveGameState = useCallback(async (isAuto = false) => {
+    if (!isHost || !roomId || !gameState || room?.status !== 'playing' || isSaving) return;
+    try {
+      setIsSaving(true);
+      const timestamp = Date.now();
+      await update(ref(db), {
+        [`savedGames/${roomId}/roomData`]: room,
+        [`savedGames/${roomId}/gameStateData`]: gameState,
+        [`savedGames/${roomId}/lastSaved`]: timestamp,
+        [`users/${user!.uid}/savedGames/${roomId}`]: {
+          roomId,
+          savedAt: timestamp,
+          name: room.name || 'Saved Mission'
+        }
+      });
+      if (!isAuto && showToast) {
+         showToast("Mission Saved", "💾");
+      }
+    } catch (err) {
+      console.error("Failed to save game state:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isHost, roomId, gameState, room, user, isSaving, showToast]);
+
+  // Auto-save interval (every 2 minutes)
+  useEffect(() => {
+    if (!isHost || room?.status !== 'playing') return;
+    const interval = setInterval(() => {
+      saveGameState(true);
+    }, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isHost, room?.status, saveGameState]);
+
+  // Auto-save on significant action (e.g. turn passes)
+  useEffect(() => {
+    if (!isHost || room?.status !== 'playing') return;
+    saveGameState(true);
+  }, [gameState?.totalTurns, isHost, room?.status, saveGameState]);
+
+  const [sentFriendRequests, setSentFriendRequests] = useState<Set<string>>(new Set());
 
   const addFriend = useCallback(async (player: any) => {
-    if (!user?.uid || !player.id || player.id === user.uid) return;
+    if (!user?.uid || !player.id || player.id === user.uid || sentFriendRequests.has(player.id)) return;
     try {
+      setSentFriendRequests(prev => new Set(prev).add(player.id));
+      
       // 1. Add to my alliance
       const friendRef = ref(db, `users/${user.uid}/friends/${player.id}`);
       await set(friendRef, {
@@ -304,14 +376,20 @@ export default function Game() {
         timestamp: serverTimestamp()
       });
 
-      alert(`Recruited ${player.username} to your Shinobi alliance!`);
+      if (showToast) {
+         showToast(`Alliance Request Sent to ${player.username}`, "🏮");
+      }
     } catch (e) {
       console.error(e);
+      setSentFriendRequests(prev => {
+        const next = new Set(prev);
+        next.delete(player.id);
+        return next;
+      });
     }
-  }, [user, userProfile]);
+  }, [user, userProfile, sentFriendRequests, showToast]);
 
   // Computed Values
-  const isHost = room?.host === user?.uid;
   const handleExitGame = async () => {
     if (isHost && room?.status === 'playing') {
       if (window.confirm("Host leaving will end the mission for everyone. Continue?")) {
@@ -574,7 +652,6 @@ export default function Game() {
 
   // AI Turn Handling - Robust Implementation
   useEffect(() => {
-    const isHost = room?.host === user?.uid;
     if (!gameState || !roomId || !isHost || gameState.isGameOver) return;
     
     const currentIndex = gameState.currentTurnIndex ?? 0;
@@ -767,18 +844,24 @@ export default function Game() {
       activeMission: null,
       isGameOver: false,
       turnStartedAt: Date.now(),
-      totalTurns: 0
+      totalTurns: 0,
+      introFinished: false
     };
 
-    // Award XP for playing
-    if (user) awardXP(user.uid, 50);
-
+    // Prepare game state but don't start yet
     const updates = {
-      [`rooms/${roomId}/status`]: 'playing',
+      [`rooms/${roomId}/status`]: 'intro',
       [`gameStates/${roomId}`]: initialGameState
     };
 
     await update(ref(db), updates);
+  };
+
+  const finishIntro = async () => {
+    if (!isHost || !roomId) return;
+    await update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+    setIsTrailerPlaying(false);
+    if (user) awardXP(user.uid, 50);
   };
 
   const handleRollDice = () => {
@@ -926,6 +1009,26 @@ export default function Game() {
               <Users size={16} />
             </motion.button>
 
+            {isHost && room?.status === 'playing' && (
+              <div className="flex gap-1.5 sm:gap-2">
+                <button
+                  onClick={togglePause}
+                  className={`p-1 sm:p-2 rounded-lg sm:rounded-xl text-white shadow-lg border-b-2 sm:border-b-4 transition-all opacity-95 hover:opacity-100 ${gameState?.isPaused ? 'bg-emerald-600 border-emerald-950' : 'bg-slate-700 border-slate-950'}`}
+                  title={gameState?.isPaused ? "Resume Mission" : "Pause Mission"}
+                >
+                  {gameState?.isPaused ? <Play size={16} fill="currentColor" /> : <Shield size={16} />}
+                </button>
+                
+                <button
+                  onClick={() => saveGameState(false)}
+                  className="hidden lg:flex p-1 sm:p-2 rounded-lg sm:rounded-xl bg-blue-600 text-white shadow-lg border-b-2 sm:border-b-4 border-blue-950"
+                  title="Save Mission State"
+                >
+                  <Save size={16} />
+                </button>
+              </div>
+            )}
+
             <button
               onClick={() => setShowLeaderboard(true)}
               className="hidden lg:flex p-1 sm:p-2 rounded-lg sm:rounded-xl bg-amber-500 text-white shadow-lg border-b-2 sm:border-b-4 border-amber-950"
@@ -1068,13 +1171,40 @@ export default function Game() {
                     <div className="absolute inset-0 bg-blue-900/10 pointer-events-none mix-blend-overlay z-20" />
                   )}
                   {gameState ? (
-                    <Board2D 
-                      gameState={gameState} 
-                      roomId={roomId} 
-                      onTileClick={(id) => setSelectedTileId(id)} 
-                      players={gameState.players} 
-                      missionTarget={gameState.activeMission?.targetTile}
-                    />
+                    <>
+                      {/* PAUSED OVERLAY */}
+                      <AnimatePresence>
+                        {gameState?.isPaused && (
+                          <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xl"
+                          >
+                             <motion.div 
+                               initial={{ scale: 0.9, y: 20 }}
+                               animate={{ scale: 1, y: 0 }}
+                               className="p-10 rounded-[3rem] border-4 border-white/10 glass-ui shadow-[0_0_80px_rgba(0,0,0,0.8)] text-center max-w-sm"
+                             >
+                                <div className="w-20 h-20 mx-auto rounded-3xl bg-orange-600 flex items-center justify-center shadow-xl mb-6 chakra-pulse">
+                                   <Shield size={40} className="text-white" />
+                                </div>
+                                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white mb-2">Combat Paused</h2>
+                                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-tight">The mission has been temporarily halted by the command. Please stand by.</p>
+                             </motion.div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <Board2D 
+                        gameState={gameState} 
+                        roomId={roomId} 
+                        onTileClick={(id) => setSelectedTileId(id)} 
+                        players={gameState.players} 
+                        missionTarget={gameState.activeMission?.targetTile}
+                        boardImage={room?.boardImage}
+                      />
+                    </>
                   ) : (
                     <div className="flex flex-col items-center gap-4 opacity-50 animate-pulse">
                       <ScrollText className="w-16 h-16 text-orange-500" />
@@ -1121,69 +1251,65 @@ export default function Game() {
               {isMyTurn && !gameState?.isGameOver && (
                 <div className="fixed bottom-4 left-0 right-0 sm:bottom-0 z-[100] pointer-events-none flex flex-col items-center lg:items-end lg:pr-12 lg:pb-12">
                   <motion.div
-                    initial={{ y: 50, opacity: 0, scale: 0.9 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    className="pointer-events-auto flex flex-col items-center gap-3 sm:gap-5 p-4 sm:p-8 rounded-[2.5rem] sm:rounded-[4rem] bg-slate-950/95 backdrop-blur-3xl border-2 shadow-[0_30px_100px_rgba(0,0,0,0.9)] relative overflow-hidden w-[92%] sm:w-full max-w-[360px] sm:max-w-[440px]"
-                    style={{ borderColor: `${colors.accent}66` }}
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="pointer-events-auto flex flex-col items-center p-6 sm:p-10 rounded-[3rem] sm:rounded-[4.5rem] bg-slate-900/40 backdrop-blur-3xl border-2 shadow-[0_40px_120px_rgba(0,0,0,0.8)] relative overflow-hidden w-[94%] sm:w-full max-w-[380px] sm:max-w-[460px] border-white/5"
                   >
-                    {/* Subtle Pulsing Background */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-orange-500/5 to-transparent pointer-events-none" />
-                    <motion.div 
-                      animate={{ opacity: [0.05, 0.1, 0.05] }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                      className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(251,146,60,0.1),transparent)] pointer-events-none" 
-                    />
+                    {/* Minimalist Aesthetic Glow */}
+                    <div className="absolute -top-24 -left-24 w-48 h-48 bg-orange-600/10 blur-[80px] rounded-full pointer-events-none" />
+                    <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-600/10 blur-[80px] rounded-full pointer-events-none" />
 
-                    <div className="flex flex-col items-center relative z-10 w-full gap-4 sm:gap-7">
-                      <div className="flex items-center gap-3 sm:gap-5 w-full">
-                        <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-orange-500/50" />
-                        <h3 className="text-[10px] sm:text-xs font-black uppercase italic tracking-[0.4em] text-white/40 font-syne">Strategy</h3>
-                        <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-orange-500/50" />
+                    <div className="flex flex-col items-center relative z-10 w-full gap-6 sm:gap-9">
+                      <div className="flex items-center gap-4 w-full">
+                        <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                        <h3 className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.5em] text-white/30 font-syne italic">Strategy Panel</h3>
+                        <div className="h-[2px] flex-1 bg-gradient-to-l from-transparent via-white/10 to-transparent" />
                       </div>
 
                       {!gameState.diceResult ? (
                         <button
                           onClick={handleRollDice}
-                          className="w-full relative group btn-shinobi"
+                          className="w-full relative group"
                         >
-                          <div className="absolute -inset-1 sm:-inset-2 bg-orange-600 rounded-3xl blur-2xl opacity-20 group-hover:opacity-40 transition duration-500"></div>
-                          <div className="relative px-6 py-4 sm:px-12 sm:py-7 bg-gradient-to-br from-orange-500 to-orange-700 text-white font-black rounded-2xl sm:rounded-[2.5rem] border-b-4 sm:border-b-8 border-orange-950 uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all active:translate-y-1 active:border-b-2 hover:scale-[1.02] shadow-[0_15px_30px_rgba(234,88,12,0.3)] text-xs sm:text-lg">
-                            <Zap className="w-5 h-5 sm:w-8 sm:h-8 fill-white animate-pulse" /> ROLL DICE
+                          <div className="absolute -inset-4 bg-orange-600/20 blur-3xl opacity-0 group-hover:opacity-100 transition duration-700"></div>
+                          <div className="relative px-8 py-5 sm:py-8 bg-gradient-to-br from-orange-500 to-orange-600 text-white font-black rounded-[2rem] sm:rounded-[3rem] shadow-[0_20px_50px_rgba(234,88,12,0.4)] border-b-8 border-orange-900 flex items-center justify-center gap-5 transition-all active:translate-y-2 active:border-b-0 hover:scale-[1.03]">
+                            <Zap className="w-6 h-6 sm:w-9 sm:h-9 fill-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" /> 
+                            <span className="text-sm sm:text-xl tracking-[0.2em] italic font-syne">ROLL DICE</span>
                           </div>
                         </button>
                       ) : (
-                        <div className="flex flex-col gap-3 w-full">
+                        <div className="flex flex-col gap-4 w-full">
                           <motion.button
                             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             onClick={handleBuyProperty}
                             disabled={!canBuy}
-                            className={`w-full py-4 sm:py-7 relative overflow-hidden font-black rounded-2xl sm:rounded-[2.5rem] border-b-4 sm:border-b-8 shadow-2xl disabled:opacity-30 disabled:grayscale uppercase tracking-[0.2em] text-[10px] sm:text-base italic transition-all active:translate-y-1 active:border-b-2 ${canBuy ? 'bg-emerald-600 border-emerald-950 text-white shadow-emerald-900/40' : 'bg-slate-800 border-slate-950 text-slate-500 shadow-none'}`}
+                            className={`w-full py-5 sm:py-8 relative overflow-hidden font-black rounded-3xl sm:rounded-[3rem] border-b-8 shadow-2xl disabled:opacity-20 disabled:grayscale uppercase tracking-[0.2em] text-[10px] sm:text-lg italic transition-all active:translate-y-2 active:border-b-0 ${canBuy ? 'bg-emerald-600 border-emerald-950 text-white shadow-emerald-900/40' : 'bg-slate-800 border-slate-900 text-slate-500 shadow-none'}`}
                           >
-                            {canBuy ? (isMobile ? "BUY PROPERTY" : "PURCHASE LAND") : "OWNED / N-A"}
+                            {canBuy ? (isMobile ? "CLAIM TERRITORY" : "ACQUIRE PROPERTY") : "AREA SECURED"}
                           </motion.button>
                           
                           <motion.button
                             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                             onClick={handleEndTurn}
-                            className="w-full py-3 sm:py-5 bg-white/5 hover:bg-white/10 text-white/90 font-black rounded-xl sm:rounded-3xl border-b-2 border-white/10 uppercase tracking-[0.2em] text-[9px] sm:text-xs italic transition-all active:translate-y-1"
+                            className="w-full py-4 sm:py-6 bg-white/5 hover:bg-white/10 text-white/80 font-black rounded-2xl sm:rounded-[2rem] border border-white/10 uppercase tracking-[0.3em] text-[8px] sm:text-[10px] italic transition-all"
                           >
-                            Finish Mission
+                            Complete Turn
                           </motion.button>
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-3 sm:gap-5 w-full pt-4 border-t border-white/5">
+                      <div className="grid grid-cols-2 gap-4 sm:gap-6 w-full pt-6">
                         <button
                           onClick={() => setShowTrade(true)}
-                          className="py-3 sm:py-5 bg-white/5 hover:bg-orange-500/10 text-white font-black rounded-2xl text-[9px] sm:text-[11px] uppercase border border-white/5 tracking-widest flex items-center justify-center gap-2.5 transition-all group"
+                          className="py-4 sm:py-6 bg-slate-950/40 hover:bg-orange-500/10 text-white/90 font-black rounded-2xl sm:rounded-[2rem] text-[9px] sm:text-xs uppercase border border-white/5 tracking-widest flex items-center justify-center gap-3 transition-all group"
                         >
-                          <MessageSquareText className="w-4 h-4 text-orange-400 group-hover:scale-110 transition-transform" /> INTEL
+                          <ScrollText className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500 group-hover:rotate-12 transition-transform" /> INTEL
                         </button>
                         <button
                           onClick={() => setShowBanking(true)}
-                          className="py-3 sm:py-5 bg-white/5 hover:bg-emerald-500/10 text-white font-black rounded-2xl text-[9px] sm:text-[11px] uppercase border border-white/5 tracking-widest flex items-center justify-center gap-2.5 transition-all group"
+                          className="py-4 sm:py-6 bg-slate-950/40 hover:bg-emerald-500/10 text-white/90 font-black rounded-2xl sm:rounded-[2rem] text-[9px] sm:text-xs uppercase border border-white/5 tracking-widest flex items-center justify-center gap-3 transition-all group"
                         >
-                          <Landmark className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" /> BANK
+                          <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 group-hover:scale-110 transition-transform" /> BANK
                         </button>
                       </div>
                     </div>
@@ -1242,10 +1368,15 @@ export default function Game() {
                           {!p.isAI && id !== (user?.uid || '') && (
                             <button 
                               onClick={() => addFriend(p)}
-                              className="p-2.5 sm:p-3 rounded-xl bg-orange-600/20 text-orange-400 hover:bg-orange-600 hover:text-white transition-all border border-orange-500/30 group/add shrink-0"
-                              title="Recruit to Alliance"
+                              disabled={sentFriendRequests.has(p.id)}
+                              className={`p-2.5 sm:p-3 rounded-xl transition-all border shrink-0 ${sentFriendRequests.has(p.id) ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-orange-600/20 text-orange-400 hover:bg-orange-600 hover:text-white border-orange-500/30 group/add'}`}
+                              title={sentFriendRequests.has(p.id) ? "Request Sent" : "Recruit to Alliance"}
                             >
-                              <Plus className="w-4 h-4 group-hover/add:rotate-90 transition-transform" />
+                              {sentFriendRequests.has(p.id) ? (
+                                <Check className="w-4 h-4" />
+                              ) : (
+                                <Plus className="w-4 h-4 group-hover/add:rotate-90 transition-transform" />
+                              )}
                             </button>
                           )}
 
@@ -1270,13 +1401,22 @@ export default function Game() {
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 sm:gap-2">
+                           <div className="flex items-center gap-1.5 sm:gap-2">
                             {!p.isAI && id === (user?.uid || '') ? (
-                              <button onClick={() => setShowCharSelect(true)}
-                                className="flex flex-col items-center justify-center p-3 sm:p-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white shadow-xl transition-all active:scale-95 border-b-4 border-orange-950 group h-14 w-14">
-                                <Medal className="w-5 h-5 fill-current mb-0.5 group-hover:rotate-12 transition-transform" />
-                                <span className="text-[8px] font-black uppercase tracking-tighter">SKIN</span>
-                              </button>
+                              <div className="flex gap-2">
+                                <button onClick={() => setShowCharSelect(true)}
+                                  className="flex flex-col items-center justify-center p-3 sm:p-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white shadow-xl transition-all active:scale-95 border-b-4 border-orange-950 group h-14 w-14">
+                                  <Medal className="w-5 h-5 fill-current mb-0.5 group-hover:rotate-12 transition-transform" />
+                                  <span className="text-[8px] font-black uppercase tracking-tighter">SKIN</span>
+                                </button>
+                                {(isHost || (userProfile?.ownedBoards?.length || 0) > 0) && (
+                                  <button onClick={() => setShowBoardSelect(true)}
+                                    className="flex flex-col items-center justify-center p-3 sm:p-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl transition-all active:scale-95 border-b-4 border-indigo-950 group h-14 w-14">
+                                    <ImageIcon className="w-5 h-5 fill-current mb-0.5 group-hover:rotate-12 transition-transform" />
+                                    <span className="text-[8px] font-black uppercase tracking-tighter">BOARD</span>
+                                  </button>
+                                )}
+                              </div>
                             ) : isHost && p.isAI && (
                               <button onClick={() => removeAI(id)}
                                 className="p-3 rounded-xl bg-red-600/80 hover:bg-red-700 text-white shadow-lg transition-all active:scale-90 border-b-4 border-red-950">
@@ -1382,6 +1522,8 @@ export default function Game() {
                             setShowAkatsukiIntro(true);
                           } else if (cat === 'HOKAGE' && activeCategory !== 'HOKAGE') {
                             setShowHokageIntro(true);
+                          } else if (cat === 'KAGE' && activeCategory !== 'KAGE') {
+                            setShowKageIntro(true);
                           }
                           setActiveCategory(cat);
                         }}
@@ -1446,7 +1588,6 @@ export default function Game() {
                        <motion.div 
                           initial={{ y: 20, opacity: 0 }}
                           animate={{ y: 0, opacity: 1 }}
-                          transition={{ delay: 1 }}
                           className="absolute bottom-12 flex flex-col items-center gap-4"
                        >
                           <p className="text-red-500 font-black uppercase tracking-[0.5em] text-[10px] animate-pulse">INITIATING AKATSUKI PROTOCOL</p>
@@ -1495,6 +1636,35 @@ export default function Game() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Epic Unskippable Game Trailer Intro */}
+          <AnimatePresence>
+            {room?.status === 'intro' && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center p-0 overflow-hidden"
+              >
+                  <video 
+                    src="/video/GameTrailer.mp4" 
+                    autoPlay 
+                    onEnded={() => isHost && finishIntro()}
+                    className="w-full h-full object-cover shadow-2xl scale-[1.01]"
+                 />
+                 <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+
+                 <div className="absolute bottom-12 left-1/2 -translate-x-1/2 p-6 flex flex-col items-center gap-2 z-20">
+                    <p className="text-orange-600 font-black uppercase tracking-[0.5em] text-[10px] sm:text-xs animate-pulse italic">The Forbidden Mission is commencing...</p>
+                    <div className="flex items-center gap-4">
+                       <span className="w-12 h-px bg-gradient-to-r from-transparent to-orange-600" />
+                       <span className="text-[8px] font-black text-white/40 uppercase tracking-widest italic">Prepare for Battle</span>
+                       <span className="w-12 h-px bg-gradient-to-l from-transparent to-orange-600" />
+                    </div>
+                 </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1573,6 +1743,27 @@ export default function Game() {
 
                 {sidebarTab === 'status' ? (
                   <div className="flex-1 p-3 space-y-4 overflow-y-auto custom-scrollbar relative z-10">
+                    {/* In-Game Arena Selection for Owners */}
+                    {((userProfile?.ownedBoards?.length || 0) > 0) && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setShowBoardSelect(true)}
+                        className="w-full p-4 rounded-3xl bg-indigo-600/20 border-2 border-indigo-500/30 flex items-center justify-between group shadow-lg hover:bg-indigo-600/30 transition-all mb-2"
+                      >
+                         <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-600 rounded-xl shadow-lg group-hover:rotate-12 transition-transform">
+                               <ImageIcon className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="flex flex-col items-start">
+                               <span className="text-[10px] font-black uppercase tracking-widest text-white italic">Switch Arena</span>
+                               <span className="text-[8px] font-bold text-indigo-400 uppercase">Deploy owned battleground</span>
+                            </div>
+                         </div>
+                         <div className="p-2 rounded-full bg-white/5 border border-white/10"><Plus className="w-3 h-3 text-white" /></div>
+                      </motion.button>
+                    )}
+                    
                     <AnimatePresence mode="popLayout">
                       {Object.values((gameState?.players || {}) as any).filter(p => !!p).map((p: any) => {
                         const isActive = (gameState?.turnOrder || [])[gameState?.currentTurnIndex || 0] === p.id && !p.isBankrupt;
@@ -1607,9 +1798,12 @@ export default function Game() {
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <h4 className={`font-black uppercase text-sm truncate tracking-tight transition-colors ${isActive ? 'text-orange-950' : 'text-white'}`}>
-                                    {p.username}
-                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                     <h4 className={`font-black uppercase text-sm truncate tracking-tight transition-colors ${isActive ? 'text-orange-950' : 'text-white'}`}>
+                                       {p.username}
+                                     </h4>
+                                     <img src={p.photoURL || "/img/MDLogo.png"} className="w-4 h-4 rounded border border-white/20 shadow-sm" alt="" />
+                                  </div>
                                   <div className="flex flex-col gap-1.5 mt-2">
                                     <motion.div
                                       animate={isActive ? { scale: [1, 1.02, 1] } : {}}
@@ -1658,18 +1852,42 @@ export default function Game() {
                 ) : sidebarTab === 'intel' ? (
                   /* Strategic Intel / Scroll of Records */
                   <div className="flex-1 flex flex-col p-4 overflow-hidden relative z-10 bg-black/10">
-                    <div className="shrink-0 mb-4 flex items-center justify-between px-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-orange-600 animate-pulse" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 italic">Mission Archives</span>
+                    <div className="shrink-0 mb-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-orange-600 animate-pulse" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 italic">Mission Archives</span>
+                        </div>
+                        <History className="w-4 h-4 text-slate-500" />
                       </div>
-                      <History className="w-4 h-4 text-slate-500" />
+                      
+                      {/* Log Filters */}
+                      <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1">
+                        {['all', 'rolls', 'buy', 'pay', 'system'].map(filter => (
+                           <button 
+                             key={filter} 
+                             onClick={() => setLogFilter(filter)}
+                             className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border-b-2 ${logFilter === filter ? 'bg-orange-600 text-white border-orange-900 shadow-lg' : 'bg-black/20 text-slate-500 border-transparent opcity-60'}`}
+                           >
+                             {filter}
+                           </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                       <AnimatePresence mode="popLayout">
                         {(gameState?.logs || []).length > 0 ? (
-                          [...gameState.logs].reverse().map((log: string, i: number) => (
+                          (gameState.logs || [])
+                          .filter((l: string) => {
+                             if (logFilter === 'all') return true;
+                             if (logFilter === 'rolls') return l.toLowerCase().includes('roll');
+                             if (logFilter === 'buy') return l.toLowerCase().includes('buy') || l.toLowerCase().includes('seize');
+                             if (logFilter === 'pay') return l.toLowerCase().includes('pay') || l.toLowerCase().includes('rent');
+                             if (logFilter === 'system') return l.toLowerCase().includes('turn') || l.toLowerCase().includes('begin') || l.toLowerCase().includes('bank');
+                             return true;
+                          })
+                          .reverse().map((log: string, i: number) => (
                             <motion.div
                               initial={{ opacity: 0, x: 20 }}
                               animate={{ opacity: 1, x: 0 }}
@@ -1717,13 +1935,13 @@ export default function Game() {
                           <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Elite Active</span>
                           <span className="text-sm font-black text-white">{Object.keys(gameState?.players || {}).length} Units</span>
                         </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                  <div className="flex-1 flex flex-col overflow-hidden">
+                ) : (
+                  <div className="flex-1 flex flex-col overflow-hidden relative z-10">
                     <ChatSystem
-                      roomId={roomId}
+                      roomId={roomId || ''}
                       username={userProfile?.username || 'Shinobi'}
                       photoURL={userProfile?.photoURL}
                       colors={colors}
@@ -1826,9 +2044,19 @@ export default function Game() {
               A messenger from <b>{gameState.players?.[gameState.pendingTrade.from]?.username || 'a Mystery Villa'}'s</b> squad has arrived with a trade contract.
             </p>
             <div className="flex gap-4 w-full">
-              <button onClick={() => executeTrade(roomId!, gameState)}
-                className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 border-b-4 border-emerald-950">Accept Scroll</button>
-              <button onClick={() => update(ref(db, `rooms/${roomId}/gameState/pendingTrade`), null)}
+              <button 
+                disabled={isAcceptingTrade}
+                onClick={async () => {
+                   setIsAcceptingTrade(true);
+                   const success = await executeTrade(roomId!, gameState);
+                   if (!success && showToast) showToast("Permission Denied: Only Leader can finalize trades", "🚫");
+                   setIsAcceptingTrade(false);
+                }}
+                className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 border-b-4 border-emerald-950 disabled:opacity-50"
+              >
+                {isAcceptingTrade ? 'Processing...' : 'Accept Scroll'}
+              </button>
+              <button onClick={() => update(ref(db, `gameStates/${roomId}`), { pendingTrade: null })}
                 className="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 border-b-4 border-red-950">Decline Tactics</button>
             </div>
           </motion.div>
@@ -2016,12 +2244,12 @@ export default function Game() {
         colors={colors} 
         userProfile={userProfile} 
       />
-      <BattleModal
+    <BattleModal
         isOpen={!!activeBattle}
         battleData={activeBattle}
         colors={colors}
         onCombatFinish={async (win: boolean, moveId: string) => {
-          if (!activeBattle || !roomId || !isHost) return;
+          if (!activeBattle || !roomId) return;
           const attackerId = activeBattle.attackerId;
           const defenderId = activeBattle.defenderId;
           const rent = activeBattle.originalRent;
@@ -2029,16 +2257,27 @@ export default function Game() {
           let finalRent = win ? Math.floor(rent * 0.5) : Math.floor(rent * 1.5);
           let chakraCost = moveId === 'ninjutsu' ? 30 : (moveId === 'genjutsu' ? 20 : 0);
 
-          const updates: any = {};
-          updates[`gameStates/${roomId}/players/${attackerId}/money`] = gameState.players[attackerId].money - finalRent;
-          updates[`gameStates/${roomId}/players/${attackerId}/chakra`] = Math.max(0, gameState.players[attackerId].chakra - chakraCost);
-          updates[`gameStates/${roomId}/players/${defenderId}/money`] = gameState.players[defenderId].money + finalRent;
-          
-          await update(ref(db), updates);
+          // Always clear local state immediately to close modal for the user
           setActiveBattle(null);
-          setTimeout(() => endTurn(roomId, gameState), 1000);
+
+          // Only the host (or the attacker, let's allow attacker too if they have permission) handles the DB update
+          // To be safe and avoid multi-writes, we let whoever finished the move update it if they can.
+          if (isHost || user?.uid === attackerId) {
+             const updates: any = {};
+             updates[`gameStates/${roomId}/players/${attackerId}/money`] = gameState.players[attackerId].money - finalRent;
+             updates[`gameStates/${roomId}/players/${attackerId}/chakra`] = Math.max(0, gameState.players[attackerId].chakra - chakraCost);
+             updates[`gameStates/${roomId}/players/${defenderId}/money`] = gameState.players[defenderId].money + finalRent;
+             // Clear the battle data in DB so other clients close their modals
+             updates[`gameStates/${roomId}/activeBattleData`] = null;
+             
+             await update(ref(db), updates);
+             if (isHost) {
+                setTimeout(() => endTurn(roomId, gameState), 1000);
+             }
+          }
         }}
-      />
+        onClose={() => setActiveBattle(null)}
+    />
 
       <AnimatePresence>
         {gameState?.isGameOver && (
@@ -2048,24 +2287,22 @@ export default function Game() {
             className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl overflow-hidden"
           >
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full aspect-square max-w-[1000px] bg-gradient-to-r from-orange-600/10 via-transparent to-orange-600/10 rounded-full animate-pulse" />
-              <FloatingShuriken count={15} />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full aspect-square max-w-[1000px] bg-gradient-to-r from-orange-600/20 via-transparent to-orange-600/20 rounded-full animate-pulse" />
+              <FloatingShuriken count={25} />
             </div>
 
             <motion.div
-              initial={{ scale: 0.8, y: 50, opacity: 0 }}
+              initial={{ scale: 0.5, y: 100, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              className="relative w-full max-w-lg glass-ui p-8 sm:p-14 rounded-[3.5rem] border-4 shadow-[0_0_100px_rgba(0,0,0,1)] flex flex-col items-center text-center overflow-hidden"
+              transition={{ type: "spring", damping: 15 }}
+              className="relative w-full max-w-xl glass-ui p-10 sm:p-16 rounded-[4rem] border-4 shadow-[0_0_150px_rgba(0,0,0,1)] flex flex-col items-center text-center overflow-hidden"
               style={{ 
-                borderColor: gameState.players[gameState.turnOrder.find((id: string) => !gameState.players[id].isBankrupt) || '']?.id === user?.uid 
-                  ? '#10b981' : '#ef4444',
+                borderColor: '#fb923c',
                 backgroundColor: 'rgba(15, 23, 42, 0.98)'
               }}
             >
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/rice-paper.png')] opacity-10 pointer-events-none" />
-
               {(() => {
-                const winnerId = gameState.turnOrder.find((id: string) => !gameState.players[id].isBankrupt);
+                const winnerId = Object.keys(gameState.players).find(id => !gameState.players[id].isBankrupt);
                 const isWinner = winnerId === user?.uid;
                 
                 return (
@@ -2170,7 +2407,7 @@ function PropertyIntelOverlay({ tileId, colors }: { tileId: number, colors: any 
         <div className="p-2 sm:p-4 flex flex-col gap-2 sm:gap-3">
           <div className="flex justify-between items-center border-b border-white/10 pb-1.5 sm:pb-2">
             <span className="text-[7px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest">Entry Tax</span>
-            <span className="text-[11px] sm:text-sm font-black text-white italic">₱{(Array.isArray(tile.rent) ? tile.rent[0] : (tile.rent || 0)).toLocaleString()}</span>
+            <span className="text-[11px] sm:text-sm font-black text-white italic">{(Array.isArray(tile.rent) ? tile.rent[0] : (tile.rent || 0)).toLocaleString()} RYO</span>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">

@@ -1,16 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Volume2, VolumeX, Music } from 'lucide-react';
+import { useUIStore } from '../../store/useUIStore';
 
 export default function BackgroundMusic() {
   const location = useLocation();
+  const { isTrailerPlaying } = useUIStore();
   const audioRef = useRef<HTMLAudioElement>(null);
   const isTrailer = location.pathname === '/';
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
-    if (isTrailer) {
+    if (isTrailer || isTrailerPlaying) {
       if (audioRef.current) audioRef.current.pause();
       return;
     }

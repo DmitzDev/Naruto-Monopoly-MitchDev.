@@ -11,54 +11,8 @@ export interface AIPlayer {
   difficulty: AIDifficulty;
 }
 
-export const getAIDecision = (ai: AIPlayer, gameState: any) => {
-  const currentTile = BOARD_DATA[ai.position];
-  
-  // 1. BUYING DECISION
-  if (['property', 'railroad', 'utility'].includes(currentTile.type)) {
-    const isOwned = Object.values(gameState.players).some((p: any) => p.properties?.includes(ai.position));
-    if (!isOwned && ai.money >= (currentTile.price || 0)) {
-      // Easy: 40% chance to buy
-      // Medium: 70% chance to buy
-      // Hard: Always buy if ROI is good or helps monopoly
-      const rand = Math.random();
-      if (ai.difficulty === 'easy' && rand < 0.4) return { action: 'buy' };
-      if (ai.difficulty === 'medium' && rand < 0.7) return { action: 'buy' };
-      if (ai.difficulty === 'hard') {
-         // Hard AI always buys if they have enough buffer (e.g. keep 200 Ryō)
-         if (ai.money - (currentTile.price || 0) > 200) return { action: 'buy' };
-      }
-    }
-  }
-
-  // 2. BUILDING DECISION (Only for Medium/Hard)
-  if (ai.difficulty !== 'easy') {
-    const monopolies = getMonopolies(ai.properties || []);
-    for (const propId of monopolies) {
-      const tile = BOARD_DATA[propId];
-      const currentHouses = gameState.houses?.[propId] || 0;
-      if (currentHouses < 5 && ai.money > (tile.houseCost || 0) + 300) {
-        return { action: 'buildHouse', propertyId: propId };
-      }
-    }
-  }
-
-  // 3. MORTGAGE DECISION (If money is low)
-  if (ai.money < 0) {
-    const potentialMortgages = (ai.properties || []).filter(id => !gameState.mortgaged?.includes(id));
-    if (potentialMortgages.length > 0) {
-      // Mortgage cheapest properties first
-      const cheapest = potentialMortgages.sort((a,b) => (BOARD_DATA[a].price || 0) - (BOARD_DATA[b].price || 0))[0];
-      return { action: 'mortgage', propertyId: cheapest };
-    }
-  }
-
-  return { action: 'endTurn' };
-};
-
-// Helper to find properties part of a monopoly
+// Helper to find properties part of a monopoly or close to one
 const getMonopolies = (properties: number[]) => {
-  const monopolies: number[] = [];
   const colorGroups: Record<string, number[]> = {};
   
   BOARD_DATA.forEach(t => {
@@ -68,11 +22,70 @@ const getMonopolies = (properties: number[]) => {
     }
   });
 
+  const completeMonopolies: number[] = [];
+  const nearMonopolies: number[] = [];
+
   Object.entries(colorGroups).forEach(([color, ids]) => {
-    if (ids.every(id => properties.includes(id))) {
-      monopolies.push(...ids);
+    const ownedCount = ids.filter(id => properties.includes(id)).length;
+    if (ownedCount === ids.length) {
+      completeMonopolies.push(...ids);
+    } else if (ownedCount >= ids.length - 1 && ids.length > 1) {
+      nearMonopolies.push(...ids);
     }
   });
 
-  return monopolies;
+  return { complete: completeMonopolies, near: nearMonopolies };
 };
+
+export const getAIDecision = (ai: AIPlayer, gameState: any) => {
+  const currentTile = BOARD_DATA[ai.position];
+  const { complete, near } = getMonopolies(ai.properties || []);
+  
+  // 1. BUYING DECISION (Aggressive for monopolies)
+  if (currentTile.type === 'property' || currentTile.type === 'railroad' || currentTile.type === 'utility') {
+    const isOwned = Object.values(gameState.players).some((p: any) => p.properties?.includes(ai.position));
+    if (!isOwned && ai.money >= (currentTile.price || 0)) {
+       const completesMonopoly = near.includes(ai.position);
+       const buffer = ai.difficulty === 'hard' ? 150 : (ai.difficulty === 'medium' ? 100 : 50);
+       
+       if (completesMonopoly || ai.money - (currentTile.price || 0) > buffer) {
+          return { action: 'buy' };
+       }
+    }
+  }
+
+  // 2. BUILDING DECISION (Prioritize complete sets)
+  if (ai.difficulty !== 'easy' && complete.length > 0) {
+    // Sort monopolies by potential rent (price)
+    const sortedMonopolies = [...complete].sort((a, b) => (BOARD_DATA[b].price || 0) - (BOARD_DATA[a].price || 0));
+    for (const propId of sortedMonopolies) {
+      const tile = BOARD_DATA[propId];
+      const currentHouses = gameState.houses?.[propId] || 0;
+      const buildBuffer = ai.difficulty === 'hard' ? 400 : 250;
+      if (currentHouses < 5 && ai.money > (tile.houseCost || 0) + buildBuffer) {
+        return { action: 'buildHouse', propertyId: propId };
+      }
+    }
+  }
+
+  // 3. EMERGENCY MORTGAGE
+  if (ai.money < 0) {
+    const potentialMortgages = (ai.properties || [])
+      .filter(id => !gameState.mortgaged?.includes(id))
+      .filter(id => !complete.includes(id)) // Try not to mortgage monopolies
+      .sort((a,b) => (BOARD_DATA[a].price || 0) - (BOARD_DATA[b].price || 0));
+    
+    if (potentialMortgages.length > 0) {
+      return { action: 'mortgage', propertyId: potentialMortgages[0] };
+    }
+    
+    // If we MUST mortgage a monopoly, do the cheapest one
+    const monopolyMortgages = complete.filter(id => !gameState.mortgaged?.includes(id));
+    if (monopolyMortgages.length > 0) {
+       return { action: 'mortgage', propertyId: monopolyMortgages[0] };
+    }
+  }
+
+  return { action: 'endTurn' };
+};
+
